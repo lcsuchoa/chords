@@ -49,7 +49,7 @@ geral <- rbind(rock, gospel, sertanejo, mpb) %>%
 ```
 
 ```{r}
-# esse chucnk demora bastante para rodar
+# esse chunk demora bastante para rodar
 
 chords <- geral$url %>%
   map(get_chords) %>%
@@ -83,8 +83,6 @@ geral$song <- gsub("(^|\\s)([a-z])", "\\1\\U\\2", geral$song, perl=T)
 ```{r}
 # write.csv(geral, "top_musicas_150623.csv")
 ```
-
-<br>
 
 # Análise exploratória por música
 
@@ -132,7 +130,7 @@ chords %>%
 ```{r}
 feat_chords <- chords %>%
   select(chord, song) %>% 
-  chorrrds::feature_extraction() %>% 
+  feature_extraction() %>% 
   select(-chord) %>% 
   group_by(song) %>% 
   summarise_all(mean)
@@ -174,6 +172,7 @@ aux <- chords %>%
 
 left_join(aux, geral, by="song") %>%
   group_by(gender) %>%
+  na.omit() %>%
   summarise(cont = round(mean(cont), 2)) %>%
   ggplot(aes(y = cont, reorder(gender, -cont, decreasing=T))) +
   geom_bar(colour = 'dodgerblue4', fill = 'darksalmon',
@@ -192,6 +191,7 @@ aux <- chords %>%
 
 left_join(aux, geral, by="song") %>%
   group_by(gender) %>%
+  na.omit() %>%
   count(chord) %>%
   mutate(prop = scales::percent(n/sum(n))) %>%
   top_n(n, n = 5)
@@ -208,6 +208,7 @@ aux <- chords %>%
 
 left_join(aux, geral, by="song") %>% 
   group_by(gender) %>%
+  na.omit() %>%
   count(chords_ngram) %>% 
   top_n(n, n = 2)
 ```
@@ -223,9 +224,68 @@ aux <- chords %>%
 
 left_join(aux, geral, by="song") %>% 
   group_by(gender) %>%
+  na.omit() %>%
   count(chords_ngram) %>% 
   top_n(n, n = 2)
 ```
 
+#### Top 2 tonalidades mais frequentes por gênero
 
-## Com padronização de tom
+```{r}
+aux <- chords %>%
+  group_by(song) %>%
+  count(key)
+
+left_join(aux, geral, by="song") %>% 
+  group_by(gender) %>%
+  na.omit() %>%
+  count(key) %>% 
+  top_n(n, n = 2)
+```
+
+#### Proporção de acordes maiores e menores por gênero
+
+```{r}
+aux <- chords %>%
+  select(chord, song) %>% 
+  feature_extraction() %>% 
+  select(-chord) %>% 
+  group_by(song) %>% 
+  summarise_all(mean)
+
+left_join(aux, geral, by="song") %>% 
+  group_by(gender) %>%
+  na.omit() %>%
+  summarise(minor = round(mean(minor), 2)) %>%
+  mutate(major = 1 - minor) %>%
+  arrange(desc(minor))
+```
+
+#### Proporção de acordes simples e complexos por gênero
+
+```{r}
+aux <- chords %>%
+  select(chord, song) %>% 
+  feature_extraction() %>% 
+  select(-chord) %>% 
+  group_by(song) %>% 
+  summarise_all(mean) %>%
+  mutate(complex = dimi + augm + sus + seventh + seventh_M + sixth + fourth +
+           sixth + fourth + fifth_aug + fifth_dim + ninth + bass)
+
+left_join(aux, geral, by="song") %>% 
+  group_by(gender) %>%
+  na.omit() %>%
+  summarise(complex = round(mean(complex), 2)) %>%
+  mutate(simple = 1 - complex) %>%
+  arrange(desc(complex))
+```
+
+## [WIP] Com padronização de tom
+Aqui quero fazer análises com todas as músicas padronizadas em C.
+Estou criando a função transpose_chords e por enquanto não está funcionando para tons menores.
+
+```{r}
+chordsC <- chords %>%
+  mutate(chordC = transpose_chords(chords, "C"))
+```

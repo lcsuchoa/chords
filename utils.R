@@ -1,46 +1,35 @@
-transpose_chords <- function(chords, from_key, to_key) {
-  # Vetor com as notas musicais
-  notes <- c("C", "C#", "Db", "D", "D#", "Eb", "E", "F", "F#", "Gb", "G", "G#", "Ab", "A", "A#", "Bb", "B")
+
+transpose_chords <- function(data, to_key) {
   
-  # Índices das tonalidades de origem e destino
-  from_index <- match(from_key, notes)
-  to_index <- match(to_key, notes)
-  
-  # Verificar se as tonalidades foram encontradas
-  if (is.na(from_index) || is.na(to_index)) {
-    stop("Tonalidade não encontrada.")
-  }
-  
-  # Calcular o deslocamento necessário para transpor os acordes
-  offset <- to_index - from_index
-  
-  # Transpor cada acorde no vetor de acordes
-  transposed_chords <- lapply(chords, function(chord) {
-    if (chord != "") {
-      # Identificar a nota do acorde
-      chord_note <- substring(chord, 1, 1)
+  notes <- c("C", "C#", "Db", "D", "D#", "Eb", "E", "F", "F#", "Gb",
+             "G", "G#", "Ab", "A", "A#", "Bb", "B")
+  minor <- c("Cm", "C#m", "Dbm", "Dm", "D#m", "Ebm", "Em", "Fm", "F#m",
+             "Gbm", "Gm", "G#m", "Abm", "Am", "A#m", "Bbm", "Bm")
+  transposed_chord <- character(length(data$key))
+
+  # tons maiores
+  for (i in 1:length(data$key)) {
+    if (data$key[i] %in% notes) {
       
-      # Verificar se a nota está presente no vetor de notas
-      note_index <- match(chord_note, notes)
-      
-      # Transpor a nota do acorde
-      transposed_note_index <- note_index + offset
-      
-      # Lidar com casos de transposição que ultrapassam os limites das notas
-      if (transposed_note_index > length(notes)) {
-        transposed_note_index <- transposed_note_index - length(notes)
-      } else if (transposed_note_index < 1) {
-        transposed_note_index <- transposed_note_index + length(notes)
+      chord <- gsub("^([A-G]#?).*", "\\1", data$chord[i])
+      if ("#" %in% data$chord[i]) {
+        sobra <- substr(data$chord[i], 3, nchar(data$chord))
+      } else {
+        sobra <- substr(data$chord[i], 2, nchar(data$chord))
       }
       
-      # Construir o novo acorde transposto
-      transposed_chord <- paste0(notes[transposed_note_index], substring(chord, 2))
+      from_index <- match(data$key[i], notes)
+      to_index <- match(to_key, notes)
+      offset <- to_index - from_index
+      chord_index <- match(chord, notes)
+      transposed_chord_index <- chord_index + offset
       
-      return(transposed_chord)
-    } else {
-      return(chord)
+      if (transposed_chord_index <= 0) {
+        transposed_chord_index <- transposed_chord_index + length(notes)
+      }
+      
+      transposed_chord[i] <- paste0(notes[transposed_chord_index], sobra)
     }
-  })
-  
-  return(transposed_chords)
+  }
+  return(transposed_chord)
 }
