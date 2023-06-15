@@ -1,0 +1,9 @@
+TAREFAS
+- análise exploratória por gênero:
+  * quantidade de acordes maiores e menores
+  * quantidade de acordes simples e complexos
+  * quantidade de músicas por tonalidade
+- pesquisar/montar função de transpor key
+- ler sobre scales and emotions (https://www.ethanhein.com/wp/2010/scales-and-emotions/)
+- pesquisar sobre similaridade de gêneros, KNN
+- pesquisar se é possível pegar top músicas do cifra club ao longo dos anos

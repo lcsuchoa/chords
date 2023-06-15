@@ -49,6 +49,8 @@ geral <- rbind(rock, gospel, sertanejo, mpb) %>%
 ```
 
 ```{r}
+# esse chucnk demora bastante para rodar
+
 chords <- geral$url %>%
   map(get_chords) %>%
   map_dfr(mutate_if, is.factor, as.character) %>%
@@ -79,8 +81,10 @@ geral$song <- gsub("(^|\\s)([a-z])", "\\1\\U\\2", geral$song, perl=T)
 ```
 
 ```{r}
-write.csv(geral, "top_musicas_150623.csv")
+# write.csv(geral, "top_musicas_150623.csv")
 ```
+
+<br>
 
 # Análise exploratória por música
 
@@ -157,7 +161,7 @@ dt %>%
 
 # Análise exploratória por gênero
 
-## Sem padronização
+## Sem padronização de tom
 
 #### Quantidade de acordes distintos por gênero
 
@@ -208,6 +212,20 @@ left_join(aux, geral, by="song") %>%
   top_n(n, n = 2)
 ```
 
-## Com padronização
+#### Top 2 progressões mais frequentes por gênero
+
+```{r}
+aux <- chords %>%
+  split(.$song) %>% 
+  map(chords_ngram, n = 4) %>% 
+  bind_rows() %>% 
+  group_by(song)
+
+left_join(aux, geral, by="song") %>% 
+  group_by(gender) %>%
+  count(chords_ngram) %>% 
+  top_n(n, n = 2)
+```
 
 
+## Com padronização de tom
