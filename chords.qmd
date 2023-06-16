@@ -10,78 +10,50 @@ require(chorrrds)
 require(tidyverse)
 require(rvest)
 require(ggridges)
+require(tictoc)
 source("utils.R")
 ```
 
 # Leitura dos dados
 
 ```{r}
-rock <- data.frame(
-  song = html_attr(html_nodes(read_html(
-  "https://www.cifraclub.com.br/mais-acessadas/rock/"), "a"), "href")[30:119],
-  gender = "rock",
-  ranking = 1:90
-)
+generos <- c("rock", "gospelreligioso", "sertanejo", "mpb", "alternativo",
+             "axé", "funk")
+# "pop", "poprock", "samba"
 
-gospel <- data.frame(
-  song = html_attr(html_nodes(read_html(
-  "https://www.cifraclub.com.br/mais-acessadas/gospelreligioso/"), "a"), "href")[30:119],
-  gender = "gospel",
-  ranking = 1:90
-)
+geral <- generos %>%
+  purrr::map(~{
+    .x %>% 
+      paste0("https://www.cifraclub.com.br/mais-acessadas/", .) %>% 
+      read_html() %>% 
+      html_nodes("a") %>%
+      html_attr("href") %>% 
+      .[30:119] %>%
+      cbind.data.frame(url = ., 
+                       gender = .x,
+                       ranking = 1:90)
+  }) %>%
+  purrr::reduce(rbind) %>%
+  mutate(gender = gsub("gospelreligioso", "gospel", gender))
 
-sertanejo <- data.frame(
-  song = html_attr(html_nodes(read_html(
-  "https://www.cifraclub.com.br/mais-acessadas/sertanejo/"), "a"), "href")[30:119],
-  gender = "sertanejo",
-  ranking = 1:90
-)
+geral$artist <- sub("^/(.*?)/.*$", "\\1", geral$url) %>%
+  gsub("-", " ", .) %>%
+  gsub("(^|\\s)([a-z])", "\\1\\U\\2", ., perl=T)
 
-mpb <- data.frame(
-  song = html_attr(html_nodes(read_html(
-  "https://www.cifraclub.com.br/mais-acessadas/mpb/"), "a"), "href")[30:119],
-  gender = "mpb",
-  ranking = 1:90
-)
+geral$song <- sub("^/.*?/(.*)/$", "\\1", geral$url) %>%
+  gsub("-", " ", .) %>%
+  gsub("(^|\\s)([a-z])", "\\1\\U\\2", ., perl=T)
+```
 
-geral <- rbind(rock, gospel, sertanejo, mpb) %>%
-  rename(url = song)
+```{r}
+# write.csv(geral, "top_musicas_160623.csv")
 ```
 
 ```{r}
 # esse chunk demora bastante para rodar
-
-chords <- geral$url %>%
-  map(get_chords) %>%
-  map_dfr(mutate_if, is.factor, as.character) %>%
-  clean(message = F) %>%
-  mutate(chord = case_when( 
-    chord == "Bb" ~ "A#",
-    chord == "Ab" ~ "G#",
-    chord == "Gb" ~ "F#",
-    chord == "Eb" ~ "D#",
-    chord == "Db" ~ "C#",
-    chord == "Fb" ~ "E",
-    chord == "Cb" ~ "B",
-    chord == "E#" ~ "F",
-    chord == "B#" ~ "C",
-    TRUE ~ chord
-  )
-)
-```
-
-```{r}
-geral$artist <- sub("^/(.*?)/.*$", "\\1", geral$url)
-geral$artist <- gsub("-", " ", geral$artist)
-geral$artist <- gsub("(^|\\s)([a-z])", "\\1\\U\\2", geral$artist, perl=T)
-
-geral$song <- sub("^/.*?/(.*)/$", "\\1", geral$url)
-geral$song <- gsub("-", " ", geral$song)
-geral$song <- gsub("(^|\\s)([a-z])", "\\1\\U\\2", geral$song, perl=T)
-```
-
-```{r}
-# write.csv(geral, "top_musicas_150623.csv")
+tic()
+chords <- read_chords(geral)
+toc()
 ```
 
 # Análise exploratória por música
@@ -137,8 +109,8 @@ feat_chords <- chords %>%
 
 dt <- feat_chords %>% 
   gather(group, vars, minor, seventh, 
-                seventh_M, sixth, fifth_dim, fifth_aug, 
-                fourth, ninth, bass, dimi, augm)
+         seventh_M, sixth, fifth_dim, fifth_aug, 
+         fourth, ninth, bass, dimi, augm)
 
 dt$group <- forcats::lvls_revalue(
   dt$group,
@@ -281,11 +253,79 @@ left_join(aux, geral, by="song") %>%
   arrange(desc(complex))
 ```
 
-## [WIP] Com padronização de tom
-Aqui quero fazer análises com todas as músicas padronizadas em C.
-Estou criando a função transpose_chords e por enquanto não está funcionando para tons menores.
+## Com padronização de tom
 
 ```{r}
 chordsC <- chords %>%
-  mutate(chordC = transpose_chords(chords, "C"))
+  mutate(chord = transpose_chords(chords, "C")) %>%
+  mutate(key = ifelse(nchar(key) == 1, "C", "Am"), key)
 ```
+
+#### Quantidade de acordes distintos por gênero
+
+```{r}
+aux <- chordsC %>% 
+  group_by(song, chord) %>% 
+  summarise(distintos = n_distinct(chord)) %>% 
+  summarise(cont = n()) %>% 
+  mutate(song = fct_reorder(song, cont))
+
+left_join(aux, geral, by="song") %>%
+  group_by(gender) %>%
+  na.omit() %>%
+  summarise(cont = round(mean(cont), 2)) %>%
+  ggplot(aes(y = cont, reorder(gender, -cont, decreasing=T))) +
+  geom_bar(colour = 'dodgerblue4', fill = 'darksalmon',
+           size = 0.5, alpha = 0.6, stat = "identity") +
+  labs(x = 'Genders', y = 'Counts') +
+  coord_flip() +
+  theme_bw(14)
+```
+
+#### Top 5 acordes mais frequentes por gênero
+
+```{r}
+aux <- chordsC %>%
+  group_by(song) %>% 
+  count(chord)
+
+left_join(aux, geral, by="song") %>%
+  group_by(gender) %>%
+  na.omit() %>%
+  count(chord) %>%
+  mutate(prop = scales::percent(n/sum(n))) %>%
+  top_n(n, n = 5)
+```
+
+#### [WIP] Top 2 transições mais frequentes por gênero
+
+```{r}
+aux <- chordsC %>%
+  split(.$song) %>% 
+  map(chords_ngram, n = 2) %>% 
+  bind_rows() %>% 
+  group_by(song)
+
+left_join(aux, geral, by="song") %>% 
+  group_by(gender) %>%
+  na.omit() %>%
+  count(chords_ngram) %>% 
+  top_n(n, n = 2)
+```
+
+#### [WIP] Top 2 progressões mais frequentes por gênero
+
+```{r}
+aux <- chordsC %>%
+  split(.$song) %>% 
+  map(chords_ngram, n = 4) %>% 
+  bind_rows() %>% 
+  group_by(song)
+
+left_join(aux, geral, by="song") %>% 
+  group_by(gender) %>%
+  na.omit() %>%
+  count(chords_ngram) %>% 
+  top_n(n, n = 2)
+```
+
