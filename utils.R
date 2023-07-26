@@ -1,7 +1,47 @@
 
+our_get_chords <- function (song_url, nf = FALSE) {
+  extract <- function(url) {
+    x <- xml2::read_html(paste0("https://www.cifraclub.com.br", url))
+    key <- rvest::html_node(x, "#cifra_tom a") %>% rvest::html_text()
+    casa <- rvest::html_node(x, "#cifra_capo") %>% rvest::html_text()
+    chords <- rvest::html_nodes(x, "pre b") %>% rvest::html_text()
+    url <- gsub("-", " ", gsub("^/|/$", "", url))
+    if (length(chords)) {
+      result <- data.frame(chord = chords, key = key, capo = gsub("[^0-9]", "", casa), song = url, 
+                           stringsAsFactors = FALSE)
+    }
+    else if (nf == TRUE) {
+      result <- data.frame(chord = "Not Found", key = "Not Found",
+                           capo = "Not Found", song = url, stringsAsFactors = FALSE)
+    }
+    result
+  }
+  if (is.data.frame(song_url) & "url" %in% names(song_url)) {
+    artist <- unique(song_url$artist)[1]
+    song_url <- song_url$url
+  }
+  saf <- purrr::safely(extract, otherwise = NULL)
+  suppressWarnings(df <- song_url %>% purrr::map(saf) %>% purrr::map("result") %>% 
+                     purrr::map_dfr(data.frame))
+  if (nrow(df) == 0) {
+    df <- data.frame(chord = "Not Found", key = "Not Found",
+                     capo = "Not Found", song = "Not Found")
+    warning("These was an error with the data collection and the chords could not be found.")
+    print(dplyr::as_tibble(df))
+    return(dplyr::as_tibble(df))
+  }
+  parsed_names <- strsplit(df$song, "/")
+  df <- df %>% dplyr::mutate(artist = sapply(parsed_names, "[", 1),
+                             song = sapply(parsed_names, "[", 2)) %>%
+    dplyr::mutate_at(c("artist", "song"), list(~stringr::str_to_title(.)))
+  return(dplyr::as_tibble(df))
+}
+
+
+
 read_chords <- function(data) {
   data$url %>%
-    map(get_chords) %>%
+    map(our_get_chords) %>%
     map_dfr(mutate_if, is.factor, as.character) %>%
     clean(message = F) %>%
     mutate(chord = case_when(
@@ -31,6 +71,55 @@ read_chords <- function(data) {
 }
 
 
+
+transpose_key <- function(data) {
+  
+  # definição das variáveis de escalas musicais
+  notes <- c("C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B")
+  minor <- c("Am", "A#m", "Bm", "Cm", "C#m", "Dm", "D#m", "Em", "Fm", "F#m", "Gm", "G#m")
+  
+  aux <- data %>%
+    mutate(
+      main = case_when(
+        capo == "" ~ NA,
+        key %in% notes & grepl("#", key) ~ substr(key, 1, 2),
+        key %in% notes & !grepl("#", key) ~ substr(key, 1, 1),
+        key %in% minor & grepl("#", key) ~ substr(key, 1, 3),
+        key %in% minor & !grepl("#", key) ~ substr(key, 1, 2)
+      ),
+      rest = case_when(
+        capo == "" ~ NA,
+        key %in% notes & grepl("#", key) ~ substr(key, 3, nchar(key)),
+        key %in% notes & !grepl("#", key) ~ substr(key, 2, nchar(key)),
+        key %in% minor & grepl("#", key) ~ substr(key, 5, nchar(key)),
+        key %in% minor & !grepl("#", key) ~ substr(key, 4, nchar(key))
+      ),
+      offset = as.integer(capo),
+      key_index = case_when(
+        key %in% notes ~ match(main, notes),
+        key %in% minor ~ match(main, minor)
+      ),
+      transposed_index = case_when(
+        key_index - offset > 0 ~ key_index - offset,
+        TRUE ~ key_index - offset + length(notes)
+      ),
+      transposed = case_when(
+        capo == "" ~ key,
+        key %in% notes ~ paste0(notes[transposed_index], rest),
+        key %in% minor ~ paste0(minor[transposed_index], rest)
+      )
+    )
+  
+  data %>%
+    mutate(key = aux$transposed)
+}
+
+
+## CRIAR COLUNA COM GRAU HARMONICO
+
+## AJUSTAR TRANSPOSE_CHORDS
+## CRIAR DUAS COLUNAS PARA ACORDES COM BAIXO
+## PESQUISAR SOBRE STRINGR
 
 transpose_chords <- function(data, to_key) {
   
@@ -76,9 +165,9 @@ transpose_chords <- function(data, to_key) {
       to_index <- match(to_key, notes)
       offset <- to_index - from_index
       chord_index <- match(chord, notes)
-      transposed_chord_index <- chord_index + offset
       
       # cálculo do index do acorde
+      transposed_chord_index <- chord_index + offset
       if (!is.na(transposed_chord_index) & transposed_chord_index <= 0) {
         transposed_chord_index <- transposed_chord_index + length(notes)
       }

@@ -43,15 +43,16 @@ geral$song <- sub("^/.*?/(.*)/$", "\\1", geral$url) %>%
 ```
 
 ```{r include=F}
-# write.csv(geral, "top_musicas_160623.csv")
-```
-
-```{r include=F}
 # esse chunk demora bastante para rodar
 tic()
 chords <- read_chords(geral)
 toc()
 ```
+
+```{r include=F}
+chords <- transpose_key(chords)
+```
+
 
 # Análise exploratória sem padronização de tom
 
@@ -326,11 +327,15 @@ left_join(aux, geral, by="song") %>%
 
 <br>
 
-#### [WIP] Top 2 transições mais frequentes por gênero
+```{r include=F}
+chordsC <- chords %>%
+  mutate(chord = chordC) %>%
+  mutate(key = keyC)
+```
+
+#### Top 2 transições mais frequentes por gênero
 
 ```{r}
-# ficar atento ao primeiro e último
-
 aux <- chordsC %>%
   split(.$song) %>% 
   map(chords_ngram, n = 2) %>% 
@@ -340,13 +345,15 @@ aux <- chordsC %>%
 left_join(aux, geral, by="song") %>% 
   group_by(genre) %>%
   na.omit() %>%
-  count(chords_ngram) %>% 
-  top_n(n, n = 2)
+  count(chords_ngram) %>%
+  mutate(prop = scales::percent(n/sum(n), 2)) %>%
+  top_n(n, n = 2) %>%
+  arrange(genre, desc(n))
 ```
 
 <br>
 
-#### [WIP] Top 2 progressões mais frequentes por gênero
+#### Top 2 progressões mais frequentes por gênero
 
 ```{r}
 aux <- chordsC %>%
@@ -358,7 +365,9 @@ aux <- chordsC %>%
 left_join(aux, geral, by="song") %>% 
   group_by(genre) %>%
   na.omit() %>%
-  count(chords_ngram) %>% 
-  top_n(n, n = 2)
+  count(chords_ngram) %>%
+  mutate(prop = scales::percent(n/sum(n), 2)) %>%
+  top_n(n, n = 2) %>%
+  arrange(genre, desc(n))
 ```
 
