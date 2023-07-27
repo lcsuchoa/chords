@@ -26,8 +26,6 @@ our_get_chords <- function (song_url, nf = FALSE) {
   if (nrow(df) == 0) {
     df <- data.frame(chord = "Not Found", key = "Not Found",
                      capo = "Not Found", song = "Not Found")
-    # warning("These was an error with the data collection and the chords could not be found.")
-    # print(dplyr::as_tibble(df))
     return(dplyr::as_tibble(df))
   }
   parsed_names <- strsplit(df$song, "/")
@@ -74,7 +72,6 @@ read_chords <- function(data) {
 
 transpose_capo <- function(data) {
   
-  # definição das variáveis de escalas musicais
   notes <- c("C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B")
   minor <- c("Am", "A#m", "Bm", "Cm", "C#m", "Dm", "D#m", "Em", "Fm", "F#m", "Gm", "G#m")
   
@@ -118,7 +115,6 @@ transpose_capo <- function(data) {
 
 transpose_chords <- function(data, to_key = "C") {
   
-  # definição das variáveis de escalas musicais
   notes <- c("C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B")
   minor <- c("Am", "A#m", "Bm", "Cm", "C#m", "Dm", "D#m", "Em", "Fm", "F#m", "Gm", "G#m")
   major_scale <- c("C", "Dm", "Em", "F", "G", "Am", "Bm")

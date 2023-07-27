@@ -15,10 +15,10 @@ source("utils.R")
 ```
 
 ```{r include=F}
-generos <- c("rock", "gospelreligioso", "sertanejo", "mpb", "alternativo",
-             "axé", "funk", "pop", "poprock", "samba")
+top_genres <- c("rock", "gospelreligioso", "sertanejo", "mpb", "alternativo",
+             "axe", "funk", "pop", "poprock", "samba")
 
-geral <- generos %>%
+top_songs <- top_genres %>%
   purrr::map(~{
     .x %>% 
       paste0("https://www.cifraclub.com.br/mais-acessadas/", .) %>% 
@@ -33,11 +33,11 @@ geral <- generos %>%
   purrr::reduce(rbind) %>%
   mutate(genre = gsub("gospelreligioso", "gospel", genre))
 
-geral$artist <- sub("^/(.*?)/.*$", "\\1", geral$url) %>%
+top_songs$artist <- sub("^/(.*?)/.*$", "\\1", top_songs$url) %>%
   gsub("-", " ", .) %>%
   gsub("(^|\\s)([a-z])", "\\1\\U\\2", ., perl=T)
 
-geral$song <- sub("^/.*?/(.*)/$", "\\1", geral$url) %>%
+top_songs$song <- sub("^/.*?/(.*)/$", "\\1", top_songs$url) %>%
   gsub("-", " ", .) %>%
   gsub("(^|\\s)([a-z])", "\\1\\U\\2", ., perl=T)
 ```
@@ -45,24 +45,39 @@ geral$song <- sub("^/.*?/(.*)/$", "\\1", geral$url) %>%
 ```{r include=F}
 # esse chunk demora bastante para rodar
 tic()
-chords <- read_chords(geral)
+chords <- read_chords(top_songs)
 toc()
 ```
 
 ```{r include=F}
-chords <- transpose_capo(chords)
+chords <- chords %>%
+  filter(!is.na(artist)) %>%
+  transpose_capo(.) %>%
+  transpose_chords(.)
 ```
 
-```{r}
-chords <- transpose_chords(chords)
+# Análise exploratória
+
+#### Quantidade de músicas por gênero
+
+```{r echo=F}
+aux <- chords %>%
+  select(song, artist) %>% 
+  unique()
+
+left_join(aux, top_songs, by=c("song", "artist")) %>%
+  group_by(genre) %>%
+  na.omit() %>%
+  unique() %>%
+  count(genre) %>%
+  arrange(n, genre)
 ```
 
-
-# Análise exploratória sem padronização de tom
+<br>
 
 #### Top 20 músicas com mais acordes distintos
 
-```{r warning=F}
+```{r echo=F}
 chords %>% 
   group_by(song, chord) %>% 
   summarise(distintos = n_distinct(chord)) %>% 
@@ -79,38 +94,9 @@ chords %>%
 
 <br>
 
-#### Top 3 acordes mais frequentes por música
-
-```{r warning=F}
-chords %>% 
-  group_by(song) %>% 
-  count(chord) %>%
-  mutate(prop = scales::percent(n/sum(n))) %>%
-  top_n(n, n = 3) %>%
-  arrange(song, desc(n))
-```
-
-<br>
-
-#### Top 2 transições mais frequentes por música
-
-```{r warning=F}
-chords %>%
-  split(.$song) %>% 
-  map(chords_ngram, n = 2) %>% 
-  bind_rows() %>% 
-  group_by(song) %>% 
-  count(chords_ngram) %>% 
-  mutate(prop = scales::percent(n/sum(n))) %>%
-  top_n(n, n = 2) %>%
-  arrange(song, desc(n))
-```
-
-<br>
-
 #### [WIP] Densidade de extracted features
 
-```{r warning=F}
+```{r echo=F}
 feat_chords <- chords %>%
   select(chord, song) %>% 
   feature_extraction() %>% 
@@ -144,14 +130,14 @@ dt %>%
 
 #### Quantidade média de acordes distintos por gênero
 
-```{r warning=F}
+```{r echo=F}
 aux <- chords %>% 
   group_by(song, chord) %>% 
   summarise(distintos = n_distinct(chord)) %>% 
   summarise(cont = n()) %>% 
   mutate(song = fct_reorder(song, cont))
 
-left_join(aux, geral, by="song") %>%
+left_join(aux, top_songs, by="song") %>%
   group_by(genre) %>%
   na.omit() %>%
   summarise(cont = round(mean(cont), 2)) %>%
@@ -167,12 +153,12 @@ left_join(aux, geral, by="song") %>%
 
 #### Top 5 acordes mais frequentes por gênero
 
-```{r warning=F}
+```{r echo=F}
 aux <- chords %>%
   group_by(song) %>% 
   count(chord)
 
-left_join(aux, geral, by="song") %>%
+left_join(aux, top_songs, by="song") %>%
   group_by(genre) %>%
   na.omit() %>%
   count(chord) %>%
@@ -185,14 +171,14 @@ left_join(aux, geral, by="song") %>%
 
 #### Top 2 transições mais frequentes por gênero
 
-```{r warning=F}
+```{r echo=F}
 aux <- chords %>%
   split(.$song) %>% 
   map(chords_ngram, n = 2) %>% 
   bind_rows() %>% 
   group_by(song)
 
-left_join(aux, geral, by="song") %>% 
+left_join(aux, top_songs, by="song") %>% 
   group_by(genre) %>%
   na.omit() %>%
   count(chords_ngram) %>%
@@ -205,14 +191,14 @@ left_join(aux, geral, by="song") %>%
 
 #### Top 2 progressões mais frequentes por gênero
 
-```{r warning=F}
+```{r echo=F}
 aux <- chords %>%
   split(.$song) %>% 
   map(chords_ngram, n = 4) %>% 
   bind_rows() %>% 
   group_by(song)
 
-left_join(aux, geral, by="song") %>% 
+left_join(aux, top_songs, by="song") %>% 
   group_by(genre) %>%
   na.omit() %>%
   count(chords_ngram) %>%
@@ -225,12 +211,12 @@ left_join(aux, geral, by="song") %>%
 
 #### Top 2 tonalidades mais frequentes por gênero
 
-```{r warning=F}
+```{r echo=F}
 aux <- chords %>%
   group_by(song) %>%
   count(key)
 
-left_join(aux, geral, by="song") %>% 
+left_join(aux, top_songs, by="song") %>% 
   group_by(genre) %>%
   na.omit() %>%
   count(key) %>% 
@@ -243,7 +229,7 @@ left_join(aux, geral, by="song") %>%
 
 #### [WIP] Proporção de acordes maiores e menores por gênero
 
-```{r warning=F}
+```{r echo=F}
 aux <- chords %>%
   select(chord, song) %>% 
   feature_extraction() %>% 
@@ -251,7 +237,7 @@ aux <- chords %>%
   group_by(song) %>% 
   summarise_all(mean)
 
-left_join(aux, geral, by="song") %>% 
+left_join(aux, top_songs, by="song") %>% 
   group_by(genre) %>%
   na.omit() %>%
   summarise(minor = round(mean(minor), 2)) %>%
@@ -261,51 +247,18 @@ left_join(aux, geral, by="song") %>%
 
 <br>
 
-#### [WIP] Proporção de acordes simples e complexos por gênero
-
-```{r warning=F}
-aux <- chords %>%
-  select(chord, song) %>% 
-  feature_extraction() %>% 
-  select(-chord) %>% 
-  group_by(song) %>% 
-  summarise_all(mean) %>%
-  mutate(complex = dimi + augm + sus + seventh + seventh_M + sixth + fourth +
-           sixth + fourth + fifth_aug + fifth_dim + ninth + bass)
-
-left_join(aux, geral, by="song") %>% 
-  group_by(genre) %>%
-  na.omit() %>%
-  summarise(complex = round(mean(complex), 2)) %>%
-  mutate(simple = 1 - complex) %>%
-  arrange(desc(complex))
-```
-
-<br>
-
-## Análise exploratória com padronização de tom
-
-```{r include=F}
-chords <- chords %>%
-  mutate(chordC = transpose_chords(chords, "C")) %>%
-  mutate(keyC = ifelse(grepl("m", key), "Am", "C"), key)
-```
-
-```{r}
-chords <- transpose_chords(chords)
-```
-
+# Análise exploratória após padronização de tom
 
 #### Quantidade de acordes distintos por gênero
 
-```{r}
+```{r echo=F}
 aux <- chords %>% 
   group_by(song, chordC) %>% 
   summarise(distintos = n_distinct(chordC)) %>% 
   summarise(cont = n()) %>% 
   mutate(song = fct_reorder(song, cont))
 
-left_join(aux, geral, by="song") %>%
+left_join(aux, top_songs, by="song") %>%
   group_by(genre) %>%
   na.omit() %>%
   summarise(cont = round(mean(cont), 2)) %>%
@@ -321,12 +274,12 @@ left_join(aux, geral, by="song") %>%
 
 #### Top 5 acordes mais frequentes por gênero
 
-```{r}
+```{r echo=F}
 aux <- chords %>%
   group_by(song) %>% 
   count(chordC)
 
-left_join(aux, geral, by="song") %>%
+left_join(aux, top_songs, by="song") %>%
   group_by(genre) %>%
   na.omit() %>%
   count(chordC) %>%
@@ -344,14 +297,14 @@ chordsC <- chords %>%
 
 #### Top 2 transições mais frequentes por gênero
 
-```{r}
+```{r echo=F}
 aux <- chordsC %>%
   split(.$song) %>% 
   map(chords_ngram, n = 2) %>% 
   bind_rows() %>% 
   group_by(song)
 
-left_join(aux, geral, by="song") %>% 
+left_join(aux, top_songs, by="song") %>% 
   group_by(genre) %>%
   na.omit() %>%
   count(chords_ngram) %>%
@@ -364,14 +317,15 @@ left_join(aux, geral, by="song") %>%
 
 #### Top 2 progressões mais frequentes por gênero
 
-```{r}
+```{r echo=F}
 aux <- chordsC %>%
   split(.$song) %>% 
   map(chords_ngram, n = 4) %>% 
   bind_rows() %>% 
-  group_by(song)
+  group_by(song) %>%
+  filter(str_count(chords_ngram, " ") == 3)
 
-left_join(aux, geral, by="song") %>% 
+left_join(aux, top_songs, by="song") %>% 
   group_by(genre) %>%
   na.omit() %>%
   count(chords_ngram) %>%
@@ -380,3 +334,88 @@ left_join(aux, geral, by="song") %>%
   arrange(genre, desc(n))
 ```
 
+<br>
+
+# [WIP] TF-IDF
+
+```{r echo=F}
+aux <- chordsC %>%
+  split(.$song) %>% 
+  map(chords_ngram, n = 4) %>% 
+  bind_rows() %>% 
+  group_by(song) %>%
+  filter(str_count(chords_ngram, " ") == 3) %>%
+  mutate(chords_ngram = gsub(" ", "-", chords_ngram))
+
+prep_genre <- left_join(aux, top_songs, by="song") %>% 
+  group_by(genre) %>%
+  select(chords_ngram) %>%
+  count(genre, chords_ngram) %>%
+  arrange(genre, desc(n))
+
+prep_total <- prep_genre %>% 
+  group_by(genre) %>%
+  summarize(total = sum(n))
+
+left_join(prep_genre, prep_total) %>%
+  group_by(genre) %>%
+  mutate(
+    rank = row_number(),
+    tf = n/total
+    )
+```
+
+<br>
+<br>
+<br>
+
+# Análises descartadas
+
+#### Top 3 acordes mais frequentes por música
+
+```{r echo=F}
+chords %>% 
+  group_by(song) %>% 
+  count(chord) %>%
+  mutate(prop = scales::percent(n/sum(n))) %>%
+  top_n(n, n = 3) %>%
+  arrange(song, desc(n))
+```
+
+<br>
+
+#### Top 2 transições mais frequentes por música
+
+```{r echo=F}
+chords %>%
+  split(.$song) %>% 
+  map(chords_ngram, n = 2) %>% 
+  bind_rows() %>% 
+  group_by(song) %>% 
+  count(chords_ngram) %>% 
+  mutate(prop = scales::percent(n/sum(n))) %>%
+  top_n(n, n = 2) %>%
+  arrange(song, desc(n))
+```
+
+<br>
+
+#### [WIP] Proporção de acordes simples e complexos por gênero
+
+```{r echo=F}
+aux <- chords %>%
+  select(chord, song) %>% 
+  feature_extraction() %>% 
+  select(-chord) %>% 
+  group_by(song) %>% 
+  summarise_all(mean) %>%
+  mutate(complex = dimi + augm + sus + seventh + seventh_M + sixth + fourth +
+           sixth + fourth + fifth_aug + fifth_dim + ninth + bass)
+
+left_join(aux, top_songs, by="song") %>% 
+  group_by(genre) %>%
+  na.omit() %>%
+  summarise(complex = round(mean(complex), 2)) %>%
+  mutate(simple = 1 - complex) %>%
+  arrange(desc(complex))
+```
