@@ -50,7 +50,11 @@ toc()
 ```
 
 ```{r include=F}
-chords <- transpose_key(chords)
+chords <- transpose_capo(chords)
+```
+
+```{r}
+chords <- transpose_chords(chords)
 ```
 
 
@@ -286,6 +290,11 @@ chords <- chords %>%
   mutate(chordC = transpose_chords(chords, "C")) %>%
   mutate(keyC = ifelse(grepl("m", key), "Am", "C"), key)
 ```
+
+```{r}
+chords <- transpose_chords(chords)
+```
+
 
 #### Quantidade de acordes distintos por gênero
 
