@@ -11,6 +11,8 @@ require(tidyverse)
 require(rvest)
 require(ggridges)
 require(tictoc)
+require(tidytext)
+require(forcats)
 source("utils.R")
 ```
 
@@ -336,7 +338,7 @@ left_join(aux, top_songs, by="song") %>%
 
 <br>
 
-# [WIP] TF-IDF
+# TF-IDF
 
 ```{r echo=F}
 aux <- chordsC %>%
@@ -357,12 +359,22 @@ prep_total <- prep_genre %>%
   group_by(genre) %>%
   summarize(total = sum(n))
 
-left_join(prep_genre, prep_total) %>%
+tf_idf <- left_join(prep_genre, prep_total) %>%
+  bind_tf_idf(chords_ngram, genre, n) %>%
+  arrange(desc(tf_idf))
+
+tf_idf
+```
+
+```{r}
+tf_idf %>%
   group_by(genre) %>%
-  mutate(
-    rank = row_number(),
-    tf = n/total
-    )
+  slice_max(tf_idf, n = 5) %>%
+  ungroup() %>%
+  ggplot(aes(tf_idf, fct_reorder(chords_ngram, tf_idf), fill = genre)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~genre, ncol = 2, scales = "free") +
+  labs(x = "tf-idf", y = NULL)
 ```
 
 <br>
@@ -419,3 +431,4 @@ left_join(aux, top_songs, by="song") %>%
   mutate(simple = 1 - complex) %>%
   arrange(desc(complex))
 ```
+
