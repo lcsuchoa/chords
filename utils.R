@@ -181,8 +181,9 @@ transpose_chords <- function(data, to_key = "C") {
 # --------------------------
 # tentativa para tirar rowwise e deixar mais eficiente
 # ainda não está funcionando (erro com acordes tipo G/B)
+# suspeita do problema ser no case-when
 
-transpose_chords <- function(data, to_key = "C") {
+transpose_chords_temp <- function(data, to_key = "C") {
   
   notes <- c("C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B")
   minor <- c("Am", "A#m", "Bm", "Cm", "C#m", "Dm", "D#m", "Em", "Fm", "F#m", "Gm", "G#m")
