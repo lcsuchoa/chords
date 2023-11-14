@@ -8,19 +8,18 @@ Os objetivos desta aplicação são:
 
 ## Conteúdo do Repositório
 
-##### chords.qmd
-Este é o arquivo principal do projeto, escrito em R Markdown (.qmd).
+##### chords.html, chords.qmd
+São os arquivos principais do projeto, que apresentam todos os resultados e conclusões.
 Contém todos os códigos e análises realizadas durante o projeto.
-Os resultados e conclusões são apresentados neste arquivo.
 
 ##### utils.R
 Um arquivo separado contendo funções utilitárias que foram desenvolvidas e utilizadas no projeto.
 Essas funções são essenciais para a realização das análises presentes no chords.qmd.
 
-##### Relatório Música no R.pdf
+##### [Relatório] Música no R.pdf
 Este PDF contém o relatório completo do projeto de iniciação científica.
 
-##### Apresentação SEMIC 2023.pdf
+##### [Apresentação] SEMIC 2023.pdf
 O arquivo PDF de apresentação de slides utilizado na SEMIC 2023.
 
 
